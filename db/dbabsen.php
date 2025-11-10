@@ -1,96 +1,117 @@
 <?php
 // db/dbabsen.php
-require_once '../koneksi.php'; 
+include '../koneksi.php';
 
-// =======================================================
-// TAMBAH DATA ABSEN (DENGAN JAM MASUK)
-// =======================================================
-if (isset($_POST['simpan'])) { 
-    $idsiswa    = (int)$_POST['idsiswa'];
-    
-    // Ambil data, gunakan string kosong jika kosong untuk menghindari Deprecated Warning saat escape
-    $tanggal_raw = $_POST['tanggal'] ?? '';
-    $idkategori_raw = $_POST['idkategori'] ?? '';
-    $jammasuk_raw = $_POST['jammasuk'] ?? date('H:i:s'); // Default waktu saat ini jika input kosong
-    $jamkeluar_raw = $_POST['jamkeluar'] ?? null; // Biarkan NULL jika input kosong
+// Folder upload
+$uploadDir = '../foto/keterangan/';
 
-    // Escape string (hanya untuk data yang berupa string)
-    $tanggal    = mysqli_real_escape_string($koneksi, $tanggal_raw);
-    $idkategori = (int)$idkategori_raw; 
-    $jammasuk   = mysqli_real_escape_string($koneksi, $jammasuk_raw); 
-    
-    // Escape dan format jamkeluar: 'NULL' jika NULL, atau 'nilai_jam' jika ada
-    $jamkeluar_escaped = $jamkeluar_raw ? mysqli_real_escape_string($koneksi, $jamkeluar_raw) : NULL;
+// Pastikan folder tersedia
+if (!file_exists($uploadDir)) {
+    mkdir($uploadDir, 0777, true);
+}
 
-    // Query INSERT menggunakan kolom jammasuk & jamkeluar
-    $query = "INSERT INTO absen (idsiswa, tanggal, idkategori, jammasuk, jamkeluar)
-              VALUES ('$idsiswa', '$tanggal', '$idkategori', '$jammasuk', " . ($jamkeluar_escaped ? "'$jamkeluar_escaped'" : "NULL") . ")";
-    
-    $result = mysqli_query($koneksi, $query);
+// ========== SIMPAN ABSEN BARU ==========
+if (isset($_POST['simpan'])) {
+    $tanggal = $_POST['tanggal'];
+    $idsiswa = $_POST['idsiswa'];
+    $id_status = $_POST['id_status'];
+    $id_pola = $_POST['id_pola'] ?? null;
+    $jammasuk = $_POST['jammasuk'] ?? date('H:i:s');
+    $jamkeluar = $_POST['jamkeluar'] ?? null;
+    $keterangan = $_POST['keterangan'] ?? null;
+    $file_bukti = null;
 
-    if ($result) {
-        header("Location: ../index.php?halaman=absen&pesan=berhasil_tambah");
-        exit;
+    // Upload file hanya jika izin/sakit
+    if (in_array($id_status, ['2', '3'])) { // 2 = Izin, 3 = Sakit
+        if (isset($_FILES['file_bukti']) && $_FILES['file_bukti']['error'] == 0) {
+            $namaFile = time() . '_' . basename($_FILES['file_bukti']['name']);
+            $targetFile = $uploadDir . $namaFile;
+
+            if (move_uploaded_file($_FILES['file_bukti']['tmp_name'], $targetFile)) {
+                $file_bukti = $namaFile;
+            } else {
+                $keterangan .= " (Gagal upload bukti)";
+            }
+        } else {
+            $keterangan .= " (Bukti wajib diunggah)";
+        }
+    }
+
+    $query = "INSERT INTO absen (idsiswa, tanggal, jammasuk, jamkeluar, id_status, id_pola, keterangan, file_bukti)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+    $stmt = mysqli_prepare($koneksi, $query);
+    mysqli_stmt_bind_param($stmt, 'isssiiss', $idsiswa, $tanggal, $jammasuk, $jamkeluar, $id_status, $id_pola, $keterangan, $file_bukti);
+
+    if (mysqli_stmt_execute($stmt)) {
+        echo "<script>alert('Data absensi berhasil disimpan!'); window.location='../index.php?halaman=absen';</script>";
     } else {
-        // Tampilkan error SQL jika gagal
-        echo "Gagal menambah data: " . mysqli_error($koneksi); 
+        echo "<script>alert('Gagal menyimpan data!'); history.back();</script>";
     }
 }
 
-// =======================================================
-// EDIT DATA ABSEN (DENGAN JAM MASUK)
-// =======================================================
-if (isset($_POST['edit'])) { 
-    $idabsen    = (int)$_POST['idabsen'];
-    
-    // Ambil data POST
-    $idsiswa_raw = $_POST['idsiswa'] ?? '';
-    $tanggal_raw = $_POST['tanggal'] ?? '';
-    $idkategori_raw = $_POST['idkategori'] ?? '';
-    $jammasuk_raw = $_POST['jammasuk'] ?? null;
-    $jamkeluar_raw = $_POST['jamkeluar'] ?? null; 
+// ========== EDIT ABSEN ==========
+if (isset($_POST['edit'])) {
+    $idabsen = $_POST['idabsen'];
+    $idsiswa = $_POST['idsiswa'];
+    $id_status = $_POST['id_status'];
+    $id_pola = $_POST['id_pola'];
+    $tanggal = $_POST['tanggal'];
+    $jammasuk = $_POST['jammasuk'];
+    $jamkeluar = $_POST['jamkeluar'];
+    $keterangan = $_POST['keterangan'] ?? null;
+    $file_bukti = null;
 
-    // Escape string
-    $idsiswa    = (int)$idsiswa_raw;
-    $tanggal    = mysqli_real_escape_string($koneksi, $tanggal_raw);
-    $idkategori = (int)$idkategori_raw;
-    
-    // Escape dan format jammasuk/jamkeluar: 'NULL' jika NULL, atau 'nilai_jam' jika ada
-    $jammasuk_escaped = $jammasuk_raw ? mysqli_real_escape_string($koneksi, $jammasuk_raw) : NULL;
-    $jamkeluar_escaped = $jamkeluar_raw ? mysqli_real_escape_string($koneksi, $jamkeluar_raw) : NULL;
+    // Ambil file lama
+    $result = mysqli_query($koneksi, "SELECT file_bukti FROM absen WHERE idabsen='$idabsen'");
+    $old = mysqli_fetch_assoc($result);
+    $old_file = $old['file_bukti'];
 
-    // Update Query
+    // Upload baru jika izin/sakit
+    if (in_array($id_status, ['2', '3'])) {
+        if (isset($_FILES['file_bukti']) && $_FILES['file_bukti']['error'] == 0) {
+            $namaFile = time() . '_' . basename($_FILES['file_bukti']['name']);
+            $targetFile = $uploadDir . $namaFile;
+
+            if (move_uploaded_file($_FILES['file_bukti']['tmp_name'], $targetFile)) {
+                $file_bukti = $namaFile;
+                // hapus file lama
+                if ($old_file && file_exists($uploadDir . $old_file)) {
+                    unlink($uploadDir . $old_file);
+                }
+            }
+        } else {
+            $file_bukti = $old_file; // tidak upload ulang
+        }
+    } else {
+        // kalau status bukan izin/sakit, hapus file lama
+        if ($old_file && file_exists($uploadDir . $old_file)) {
+            unlink($uploadDir . $old_file);
+        }
+        $file_bukti = null;
+    }
+
     $query = "UPDATE absen 
-              SET idsiswa='$idsiswa',
-                  tanggal='$tanggal',
-                  idkategori='$idkategori',
-                  jammasuk=" . ($jammasuk_escaped ? "'$jammasuk_escaped'" : "NULL") . ",
-                  jamkeluar=" . ($jamkeluar_escaped ? "'$jamkeluar_escaped'" : "NULL") . "
-              WHERE idabsen='$idabsen'";
+              SET idsiswa=?, id_status=?, id_pola=?, tanggal=?, jammasuk=?, jamkeluar=?, keterangan=?, file_bukti=? 
+              WHERE idabsen=?";
+    $stmt = mysqli_prepare($koneksi, $query);
+    mysqli_stmt_bind_param($stmt, 'iiisssssi', $idsiswa, $id_status, $id_pola, $tanggal, $jammasuk, $jamkeluar, $keterangan, $file_bukti, $idabsen);
 
-    $result = mysqli_query($koneksi, $query);
-
-    if ($result) {
-        header("Location: ../index.php?halaman=absen&pesan=berhasil_edit");
-        exit;
+    if (mysqli_stmt_execute($stmt)) {
+        echo "<script>alert('Data absensi berhasil diperbarui!'); window.location='../index.php?halaman=absen';</script>";
     } else {
-        echo "Gagal mengedit data: " . mysqli_error($koneksi);
+        echo "<script>alert('Gagal memperbarui data!'); history.back();</script>";
     }
 }
 
-// =======================================================
-// HAPUS DATA ABSEN
-// =======================================================
+// ========== HAPUS ABSEN ==========
 if (isset($_GET['hapus'])) {
-    $idabsen = (int)$_GET['hapus'];
-    $query_hapus = "DELETE FROM absen WHERE idabsen = '$idabsen'";
-    $result_hapus = mysqli_query($koneksi, $query_hapus);
-
-    if ($result_hapus) {
-        header("Location: ../index.php?halaman=absen&pesan=berhasil_hapus");
-        exit;
-    } else {
-        echo "Gagal menghapus data: " . mysqli_error($koneksi);
+    $idabsen = $_GET['hapus'];
+    $res = mysqli_query($koneksi, "SELECT file_bukti FROM absen WHERE idabsen='$idabsen'");
+    $data = mysqli_fetch_assoc($res);
+    if ($data['file_bukti'] && file_exists($uploadDir . $data['file_bukti'])) {
+        unlink($uploadDir . $data['file_bukti']);
     }
+    mysqli_query($koneksi, "DELETE FROM absen WHERE idabsen='$idabsen'");
+    echo "<script>alert('Data absen berhasil dihapus!'); window.location='../index.php?halaman=absen';</script>";
 }
 ?>

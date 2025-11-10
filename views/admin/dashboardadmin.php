@@ -1,7 +1,7 @@
 <?php
 // PASTIKAN $koneksi SUDAH TERSEDIA DI SINI
 if (!isset($koneksi)) {
-    // Jika $koneksi belum terdefinisi, sesuaikan path ke koneksi.php
+    // Sesuaikan path ini jika perlu!
     require_once 'koneksi.php'; 
 }
 
@@ -12,28 +12,32 @@ $bulan_ini = date('Y-m');
 $q_total_siswa = mysqli_query($koneksi, "SELECT COUNT(idsiswa) AS total FROM siswa");
 $total_siswa = mysqli_fetch_assoc($q_total_siswa)['total'] ?? 0;
 
-// 2. MENGHITUNG SISWA HADIR HARI INI (Asumsi idkategori=1 adalah Hadir)
+// 2. MENGHITUNG SISWA HADIR HARI INI (Asumsi id_status=1 adalah Hadir)
+// KOREKSI: Menggunakan id_status sesuai skema database
 $q_hadir_hari_ini = mysqli_query($koneksi, "SELECT COUNT(idabsen) AS hadir_hari_ini 
                                              FROM absen 
-                                             WHERE tanggal = '$tanggal_hari_ini' AND idkategori = 1");
+                                             WHERE tanggal = '$tanggal_hari_ini' AND id_status = 1");
 $hadir_hari_ini = mysqli_fetch_assoc($q_hadir_hari_ini)['hadir_hari_ini'] ?? 0;
 
-// 3. MENGHITUNG SISWA TIDAK HADIR HARI INI (Asumsi idkategori=2, 3, 4 adalah Tidak Hadir)
+// 3. MENGHITUNG SISWA TIDAK HADIR HARI INI (Asumsi id_status=2, 3, 4 adalah Tidak Hadir)
+// KOREKSI: Menggunakan id_status sesuai skema database
 $q_tidak_hadir_hari_ini = mysqli_query($koneksi, "SELECT COUNT(idabsen) AS tidak_hadir_hari_ini 
-                                                    FROM absen 
-                                                    WHERE tanggal = '$tanggal_hari_ini' AND idkategori IN (2, 3, 4)");
+                                                     FROM absen 
+                                                     WHERE tanggal = '$tanggal_hari_ini' AND id_status IN (2, 3, 4)");
 $tidak_hadir_hari_ini = mysqli_fetch_assoc($q_tidak_hadir_hari_ini)['tidak_hadir_hari_ini'] ?? 0;
 
 // 4. MENGHITUNG TEGAK WAKTU DAN TERLAMBAT (Logika sederhana)
+// Catatan: Logika ini masih sangat sederhana. Anda harus menggunakan tabel detilkehadiran dan jam_masuk/jam_pulang_ideal
 $total_absen_hari_ini = $hadir_hari_ini + $tidak_hadir_hari_ini;
 $tepat_waktu = round($hadir_hari_ini * 0.90); 
 $terlambat = $hadir_hari_ini - $tepat_waktu; 
 
-// 5. MENGHITUNG REKAP BULANAN (untuk persentase dan chart)
-$q_rekap_bulanan = mysqli_query($koneksi, "SELECT idkategori, COUNT(idabsen) AS total 
+// 5. MENGHITUNG REKAP BULANAN
+// KOREKSI: Menggunakan id_status sesuai skema database
+$q_rekap_bulanan = mysqli_query($koneksi, "SELECT id_status, COUNT(idabsen) AS total 
                                              FROM absen 
                                              WHERE tanggal LIKE '$bulan_ini%' 
-                                             GROUP BY idkategori");
+                                             GROUP BY id_status");
 
 $rekap = [
     'Hadir' => 0, 'Izin' => 0, 'Sakit' => 0, 'Alpha' => 0, 'TotalBulan' => 0
@@ -41,10 +45,11 @@ $rekap = [
 
 while ($r = mysqli_fetch_assoc($q_rekap_bulanan)) {
     $rekap['TotalBulan'] += $r['total'];
-    if ($r['idkategori'] == 1) $rekap['Hadir'] = $r['total'];
-    if ($r['idkategori'] == 2) $rekap['Izin'] = $r['total'];
-    if ($r['idkategori'] == 3) $rekap['Sakit'] = $r['total'];
-    if ($r['idkategori'] == 4) $rekap['Alpha'] = $r['total'];
+    // Asumsi mapping id_status ke nama status
+    if ($r['id_status'] == 1) $rekap['Hadir'] = $r['total'];
+    if ($r['id_status'] == 2) $rekap['Izin'] = $r['total'];
+    if ($r['id_status'] == 3) $rekap['Sakit'] = $r['total'];
+    if ($r['id_status'] == 4) $rekap['Alpha'] = $r['total'];
 }
 
 $persen_hadir = ($rekap['TotalBulan'] > 0) ? round(($rekap['Hadir'] / $rekap['TotalBulan']) * 100) : 0;
@@ -53,24 +58,25 @@ $persen_sakit = ($rekap['TotalBulan'] > 0) ? round(($rekap['Sakit'] / $rekap['To
 $persen_alpha = ($rekap['TotalBulan'] > 0) ? round(($rekap['Alpha'] / $rekap['TotalBulan']) * 100) : 0;
 
 // 6. MENGAMBIL DAFTAR KEHADIRAN HARI INI
-$q_daftar_hadir = mysqli_query($koneksi, "SELECT T3.nis, T3.namasiswa, T4.namakelas, T2.namakategori
+// KOREKSI: Mengganti JOIN ke tabel 'kategori' menjadi JOIN ke 'status_absen'
+$q_daftar_hadir = mysqli_query($koneksi, "SELECT T3.nis, T3.namasiswa, T4.namakelas, T2.nama_status
                                              FROM absen T1
-                                             INNER JOIN kategori T2 ON T1.idkategori = T2.idkategori
+                                             INNER JOIN status_absen T2 ON T1.id_status = T2.id_status
                                              INNER JOIN siswa T3 ON T1.idsiswa = T3.idsiswa
                                              LEFT JOIN kelas T4 ON T3.idkelas = T4.idkelas
                                              WHERE T1.tanggal = '$tanggal_hari_ini'
                                              ORDER BY T3.namasiswa ASC LIMIT 5"); 
 
-// FUNGSI UNTUK MENGAMBIL CLASS BADGE BERDASARKAN KATEGORI
-function get_badge_class($kategori) {
-    if (strtolower($kategori) == 'hadir') return 'badge-success';
-    if (strtolower($kategori) == 'izin') return 'badge-warning';
-    if (strtolower($kategori) == 'sakit') return 'badge-info';
-    if (strtolower($kategori) == 'alpha') return 'badge-danger';
+// FUNGSI UNTUK MENGAMBIL CLASS BADGE BERDASARKAN KATEGORI (nama_status)
+function get_badge_class($status) {
+    if (strtolower($status) == 'hadir') return 'badge-success';
+    if (strtolower($status) == 'izin') return 'badge-warning';
+    if (strtolower($status) == 'sakit') return 'badge-info';
+    if (strtolower($status) == 'alpha') return 'badge-danger';
     return 'badge-secondary';
 }
 
-// 7. MENGHITUNG STATISTIK KELAS (Contoh: Ambil 3 kelas teratas)
+// 7. MENGHITUNG STATISTIK KELAS
 $q_kelas_statistik = mysqli_query($koneksi, "SELECT T2.namakelas, COUNT(T1.idsiswa) as total_siswa 
                                              FROM siswa T1 
                                              INNER JOIN kelas T2 ON T1.idkelas = T2.idkelas
@@ -350,10 +356,11 @@ while ($data_kelas = mysqli_fetch_assoc($q_kelas_statistik)) {
                         <td><span class="text-secondary"><?php echo htmlspecialchars($data_hadir['namakelas'] ?? '-'); ?></span></td>
                         <td>
                           <?php 
-                          $kategori = htmlspecialchars($data_hadir['namakategori'] ?? 'N/A');
-                          $badge_class = get_badge_class($kategori);
+                          // KOREKSI: Menggunakan nama_status dari tabel status_absen
+                          $status = htmlspecialchars($data_hadir['nama_status'] ?? 'N/A');
+                          $badge_class = get_badge_class($status);
                           ?>
-                          <span class="badge <?php echo $badge_class; ?> p-2"><?php echo $kategori; ?></span>
+                          <span class="badge <?php echo $badge_class; ?> p-2"><?php echo $status; ?></span>
                         </td>
                       </tr>
                     <?php endwhile; ?>
@@ -399,6 +406,11 @@ while ($data_kelas = mysqli_fetch_assoc($q_kelas_statistik)) {
 
 <script>
 document.addEventListener("DOMContentLoaded", function() {
+    // PENTING: Cek kembali apakah library Chart.js sudah dimuat di file index.php Anda!
+    if (typeof Chart === 'undefined') {
+        console.error("Chart.js library not loaded. Charts will not display.");
+        return; // Hentikan eksekusi script jika Chart.js belum dimuat
+    }
 
     // Data dari PHP untuk Chart Bulanan
     const rekapData = {
@@ -409,52 +421,57 @@ document.addEventListener("DOMContentLoaded", function() {
     };
 
     // --- Chart Rekap Kehadiran Bulanan (Bar Chart) ---
-    const ctxAttendance = document.getElementById('attendanceChart').getContext('2d');
-    new Chart(ctxAttendance, {
-        type: 'bar',
-        data: {
-            labels: ['Hadir', 'Izin', 'Sakit', 'Alpha'],
-            datasets: [{
-                label: 'Total Absensi Bulan Ini',
-                backgroundColor: ['#28a745', '#ffc107', '#17a2b8', '#dc3545'],
-                data: [rekapData.hadir, rekapData.izin, rekapData.sakit, rekapData.alpha]
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            legend: { display: false },
-            scales: {
-                yAxes: [{
-                    ticks: {
-                        beginAtZero: true,
-                        fontColor: '#333'
-                    },
-                    gridLines: { display: true, color: 'rgba(0, 0, 0, 0.05)' }
-                }],
-                xAxes: [{
-                    gridLines: { display: false }
+    const ctxAttendance = document.getElementById('attendanceChart');
+    if (ctxAttendance) {
+        new Chart(ctxAttendance.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: ['Hadir', 'Izin', 'Sakit', 'Alpha'],
+                datasets: [{
+                    label: 'Total Absensi Bulan Ini',
+                    backgroundColor: ['#28a745', '#ffc107', '#17a2b8', '#dc3545'],
+                    data: [rekapData.hadir, rekapData.izin, rekapData.sakit, rekapData.alpha]
                 }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                legend: { display: false },
+                scales: {
+                    yAxes: [{
+                        ticks: {
+                            beginAtZero: true,
+                            fontColor: '#333'
+                        },
+                        gridLines: { display: true, color: 'rgba(0, 0, 0, 0.05)' }
+                    }],
+                    xAxes: [{
+                        gridLines: { display: false }
+                    }]
+                }
             }
-        }
-    });
+        });
+    }
+
 
     // --- Chart Statistik Kelas (Doughnut Chart) ---
-    const ctxClass = document.getElementById('classAttendanceChart').getContext('2d');
-    new Chart(ctxClass, {
-        type: 'doughnut',
-        data: {
-            labels: <?php echo json_encode($kelas_labels); ?>, // Data label dari PHP
-            datasets: [{
-                data: <?php echo json_encode($kelas_data); ?>, // Data jumlah siswa dari PHP
-                backgroundColor : ['#007bff', '#ffc107', '#28a745', '#17a2b8', '#dc3545', '#6f42c1'],
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            legend: { position: 'bottom' },
-        }
-    });
+    const ctxClass = document.getElementById('classAttendanceChart');
+    if (ctxClass) {
+        new Chart(ctxClass.getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                labels: <?php echo json_encode($kelas_labels); ?>, // Data label dari PHP
+                datasets: [{
+                    data: <?php echo json_encode($kelas_data); ?>, // Data jumlah siswa dari PHP
+                    backgroundColor : ['#007bff', '#ffc107', '#28a745', '#17a2b8', '#dc3545', '#6f42c1'],
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                legend: { position: 'bottom' },
+            }
+        });
+    }
 });
 </script>

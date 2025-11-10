@@ -1,88 +1,93 @@
 <?php
-// Asumsi $koneksi sudah tersedia
+// views/kehadiran/editkehadiran.php
+require_once 'koneksi.php';
 
-// 1. Ambil ID dari URL
+// Jalankan session hanya jika belum aktif
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+// Cek ID kehadiran
 $idkehadiran = $_GET['id'] ?? null;
-
 if (!$idkehadiran) {
     echo "<div class='alert alert-danger'>ID Kehadiran tidak ditemukan!</div>";
     exit;
 }
 
-// 2. Ambil Data Kehadiran Lama berdasarkan idkehadiran, JOIN dengan siswa
-$query_lama = "
-    SELECT 
-        k.idkehadiran, 
-        k.idsiswa, 
-        k.idadmin, 
-        k.tanggal, 
-        k.statuskehadiran, 
-        s.namasiswa 
-    FROM kehadiran k 
-    JOIN siswa s ON k.idsiswa = s.idsiswa 
+// Ambil data kehadiran + siswa + status absensi
+$query = "
+    SELECT k.*, s.namasiswa, sa.nama_status 
+    FROM kehadiran k
+    JOIN siswa s ON k.idsiswa = s.idsiswa
+    JOIN status_absen sa ON k.id_status = sa.id_status
     WHERE k.idkehadiran = ?
 ";
-$stmt_lama = mysqli_prepare($koneksi, $query_lama);
-mysqli_stmt_bind_param($stmt_lama, "i", $idkehadiran);
-mysqli_stmt_execute($stmt_lama);
-$result_lama = mysqli_stmt_get_result($stmt_lama);
+$stmt = mysqli_prepare($koneksi, $query);
+mysqli_stmt_bind_param($stmt, "i", $idkehadiran);
+mysqli_stmt_execute($stmt);
+$result = mysqli_stmt_get_result($stmt);
 
-if (mysqli_num_rows($result_lama) == 0) {
-    echo "<div class='alert alert-danger'>Data Kehadiran dengan ID " . htmlspecialchars($idkehadiran) . " tidak ditemukan!</div>";
+if (mysqli_num_rows($result) == 0) {
+    echo "<div class='alert alert-danger'>Data tidak ditemukan!</div>";
     exit;
 }
-$data_lama = mysqli_fetch_assoc($result_lama);
-mysqli_stmt_close($stmt_lama);
 
-// Ambil data siswa untuk dropdown
+$data = mysqli_fetch_assoc($result);
+mysqli_stmt_close($stmt);
+
+// Ambil daftar siswa & status absensi
 $query_siswa = mysqli_query($koneksi, "SELECT idsiswa, namasiswa FROM siswa ORDER BY namasiswa ASC");
-$status_options = ['Hadir', 'Izin', 'Sakit', 'Alpha'];
+$query_status = mysqli_query($koneksi, "SELECT id_status, nama_status FROM status_absen ORDER BY id_status ASC");
 ?>
 
 <section class="content">
     <div class="card shadow-sm">
         <div class="card-header bg-gradient-warning">
-            <h3 class="card-title text-white">Edit Data Kehadiran (ID: <?= htmlspecialchars($data_lama['idkehadiran']) ?>)</h3>
+            <h3 class="card-title text-white">Edit Data Kehadiran (ID: <?= htmlspecialchars($data['idkehadiran']) ?>)</h3>
         </div>
 
-        <form action="db/dbkehadiran.php" method="post"> 
+        <form action="db/dbkehadiran.php" method="post">
             <div class="card-body">
-                <input type="hidden" name="idkehadiran" value="<?= htmlspecialchars($data_lama['idkehadiran']) ?>">
-                <input type="hidden" name="idadmin" value="<?= htmlspecialchars($data_lama['idadmin']) ?>"> 
-                
+                <input type="hidden" name="idkehadiran" value="<?= htmlspecialchars($data['idkehadiran']) ?>">
+                <input type="hidden" name="idadmin" value="<?= htmlspecialchars($data['idadmin']) ?>">
+
+                <!-- Nama Siswa -->
                 <div class="form-group mb-3">
                     <label for="idsiswa" class="font-weight-bold">Nama Siswa</label>
                     <select class="form-control" id="idsiswa" name="idsiswa" required>
-                        <?php while($data_siswa = mysqli_fetch_assoc($query_siswa)): ?>
-                            <option value="<?= htmlspecialchars($data_siswa['idsiswa']) ?>"
-                                <?= ($data_siswa['idsiswa'] == $data_lama['idsiswa']) ? 'selected' : '' ?>>
-                                <?= htmlspecialchars($data_siswa['namasiswa']) ?>
+                        <?php while ($siswa = mysqli_fetch_assoc($query_siswa)): ?>
+                            <option value="<?= $siswa['idsiswa'] ?>"
+                                <?= ($siswa['idsiswa'] == $data['idsiswa']) ? 'selected' : '' ?>>
+                                <?= htmlspecialchars($siswa['namasiswa']) ?>
                             </option>
                         <?php endwhile; ?>
                     </select>
                 </div>
-                
+
+                <!-- Tanggal -->
                 <div class="form-group mb-3">
                     <label for="tanggal" class="font-weight-bold">Tanggal</label>
-                    <input type="date" class="form-control" id="tanggal" name="tanggal" 
-                            value="<?= htmlspecialchars($data_lama['tanggal'] ?? '') ?>" required>
+                    <input type="date" class="form-control" id="tanggal" name="tanggal"
+                        value="<?= htmlspecialchars($data['tanggal']) ?>" required>
                 </div>
-                
+
+                <!-- Status Kehadiran -->
                 <div class="form-group mb-4">
-                    <label for="statuskehadiran" class="font-weight-bold">Status Kehadiran</label>
-                    <select class="form-control" id="statuskehadiran" name="statuskehadiran" required>
-                        <?php foreach ($status_options as $status): ?>
-                            <option value="<?= htmlspecialchars($status) ?>"
-                                <?= ($status == $data_lama['statuskehadiran']) ? 'selected' : '' ?>>
-                                <?= htmlspecialchars($status) ?>
+                    <label for="id_status" class="font-weight-bold">Status Kehadiran</label>
+                    <select class="form-control" id="id_status" name="id_status" required>
+                        <?php while ($status = mysqli_fetch_assoc($query_status)): ?>
+                            <option value="<?= $status['id_status'] ?>"
+                                <?= ($status['id_status'] == $data['id_status']) ? 'selected' : '' ?>>
+                                <?= htmlspecialchars($status['nama_status']) ?>
                             </option>
-                        <?php endforeach; ?>
+                        <?php endwhile; ?>
                     </select>
                 </div>
 
             </div>
+
             <div class="card-footer text-right">
-                <button type="submit" name="edit" class="btn btn-warning"> 
+                <button type="submit" name="edit" class="btn btn-warning">
                     <i class="fas fa-edit"></i> Simpan Perubahan
                 </button>
                 <a href="index.php?halaman=kehadiran" class="btn btn-secondary ml-2">

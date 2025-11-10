@@ -134,20 +134,7 @@
                     </ul>
                 </li>
 
-                <li class="nav-item has-treeview">
-                    <a href="#" class="nav-link">
-                        <i class="nav-icon fas fa-tags"></i>
-                        <p>Kategori<i class="fas fa-angle-left right"></i></p>
-                    </a>
-                    <ul class="nav nav-treeview">
-                        <li class="nav-item">
-                            <a href="index.php?halaman=kategori" class="nav-link">
-                                <i class="far fa-circle nav-icon"></i>
-                                <p>Kategori</p>
-                            </a>
-                        </li>
-                    </ul>
-                </li>
+
 
                 <li class="nav-header">Data Absensi</li>
 
@@ -196,6 +183,35 @@
                     </ul>
                 </li>
 
+
+                <li class="nav-item has-treeview">
+                    <a href="#" class="nav-link">
+                        <i class="nav-icon fas fa-tags"></i>
+                        <p>status Absen<i class="fas fa-angle-left right"></i></p>
+                    </a>
+                    <ul class="nav nav-treeview">
+                        <li class="nav-item">
+                            <a href="index.php?halaman=status_absen" class="nav-link">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>status Absen</p>
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+                <li class="nav-item has-treeview">
+                    <a href="#" class="nav-link">
+                        <i class="nav-icon fas fa-tags"></i>
+                        <p>Pola Jadwal<i class="fas fa-angle-left right"></i></p>
+                    </a>
+                    <ul class="nav nav-treeview">
+                        <li class="nav-item">
+                            <a href="index.php?halaman=polajadwal" class="nav-link">
+                                <i class="far fa-circle nav-icon"></i>
+                                <p>Pola Jadwal</p>
+                            </a>
+                        </li>
+                    </ul>
+                </li>
                 <li class="nav-header">Pengguna Sistem</li>
 
                 <li class="nav-item has-treeview">
@@ -219,7 +235,7 @@
                     <a href="#" class="nav-link">
                         <i class="nav-icon fas fa-file-alt"></i>
                         <p>
-                            Laporan 
+                            Laporan
                             <i class="right fas fa-angle-left"></i>
                         </p>
                     </a>
