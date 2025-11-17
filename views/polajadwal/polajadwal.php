@@ -16,7 +16,7 @@ if (!$query) {
 
 <div class="card">
     <div class="card-header">
-        <h3 class="card-title"><i class="fas fa-clock mr-1"></i> Data Pola Jadwal</h3>
+        <h3 class="card-title"><i class="fas fa-clock mr-1"></i> Data Pola Jadwal/kategori</h3>
     </div>
 
     <div class="card-body">

@@ -201,13 +201,13 @@
                 <li class="nav-item has-treeview">
                     <a href="#" class="nav-link">
                         <i class="nav-icon fas fa-tags"></i>
-                        <p>Pola Jadwal<i class="fas fa-angle-left right"></i></p>
+                        <p>Kategori<i class="fas fa-angle-left right"></i></p>
                     </a>
                     <ul class="nav nav-treeview">
                         <li class="nav-item">
                             <a href="index.php?halaman=polajadwal" class="nav-link">
                                 <i class="far fa-circle nav-icon"></i>
-                                <p>Pola Jadwal</p>
+                                <p>Kategori</p>
                             </a>
                         </li>
                     </ul>

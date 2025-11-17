@@ -13,8 +13,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $targetDir = __DIR__ . '/../../assets/img/admin/';
         if (!is_dir($targetDir)) mkdir($targetDir, 0777, true);
         $ext = strtolower(pathinfo($_FILES['fotoadmin']['name'], PATHINFO_EXTENSION));
-
-        // Batasi hanya ekstensi gambar
         $allowed = ['jpg', 'jpeg', 'png', 'gif'];
         if (in_array($ext, $allowed)) {
             $newName = 'admin_' . time() . '.' . $ext;
@@ -50,7 +48,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Registrasi Admin/Guru - SMK Negeri 1 Karang Baru</title>
+<title>Registrasi Admin/Guru</title>
+
+<!-- Font Awesome (ikon AdminLTE) -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
 <style>
 body {
     font-family: 'Poppins', sans-serif;
@@ -82,10 +84,12 @@ body {
     color: #2d3436;
     margin-bottom: 25px;
 }
-.left .logo {
-    width: 100px;
+.left .icon {
+    font-size: 70px;
+    color: #00b894;
     display: block;
-    margin: 0 auto 15px auto;
+    text-align: center;
+    margin-bottom: 20px;
 }
 form input[type="text"],
 form input[type="password"],
@@ -141,8 +145,8 @@ button:hover {
     text-align: center;
     padding: 40px;
 }
-.right img {
-    width: 130px;
+.right .icon {
+    font-size: 90px;
     margin-bottom: 20px;
 }
 .right h3 {
@@ -181,15 +185,7 @@ button:hover {
 <body>
 <div class="container">
     <div class="left">
-        <?php
-        // 🔹 Logo lokal cek otomatis
-        $logoPath = __DIR__ . '/../../assets/img/download.jpg';
-        $logoUrl = file_exists($logoPath)
-            ? '../../assets/img/download.jpg'
-            : 'https://upload.wikimedia.org/wikipedia/commons/5/5b/SMK_Negeri_1_Karang_Baru.png';
-        ?>
-        <img src="<?php echo $logoUrl; ?>" alt="Logo SMK Negeri 1 Karang Baru" class="logo">
-
+        <i class="fas fa-user-tie icon"></i>
         <h2>Registrasi Admin / Guru</h2>
         <form method="post" enctype="multipart/form-data" onsubmit="return validateForm()">
             <input type="text" name="namaadmin" placeholder="Nama Lengkap" required>
@@ -204,11 +200,10 @@ button:hover {
     </div>
 
     <div class="right">
-        <img src="https://cdn-icons-png.flaticon.com/512/4140/4140037.png" alt="Icon Guru/Admin">
+        <i class="fas fa-user-shield icon"></i>
         <h3>Selamat Datang di Portal Admin</h3>
-        <p><b>SMK Negeri 1 Karang Baru</b><br>
-        Terima kasih telah bergabung!<br>
-        Daftarkan dirimu sebagai Admin atau Guru dan bantu menciptakan sistem absensi yang efisien, cepat, dan modern untuk sekolah kita tercinta.</p>
+        <p><b>Sistem Absensi Digital</b><br>
+        Daftarkan dirimu sebagai Admin atau Guru dan bantu menciptakan sistem absensi yang efisien, cepat, dan modern.</p>
         <a href="index.php?halaman=loginadmin">Sudah punya akun? Login</a>
     </div>
 </div>
